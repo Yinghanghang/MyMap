@@ -1,4 +1,4 @@
-package edu.sjsu.android.project4template;
+package edu.sjsu.android.project4yingyingzhao;
 
 import android.content.Context;
 

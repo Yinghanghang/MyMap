@@ -1,28 +1,54 @@
-package edu.sjsu.android.project4template;
+package edu.sjsu.android.project4yingyingzhao;
 
 import android.content.ContentValues;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.net.Uri;
+import android.nfc.Tag;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 import androidx.loader.app.LoaderManager;
+import androidx.loader.content.CursorLoader;
 import androidx.loader.content.Loader;
 
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.security.auth.login.LoginException;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LoaderManager.LoaderCallbacks<Cursor> {
 
     private GoogleMap mMap;
     // TODO: set up following class attributes
     // Uri: get from LocationsProvider
+    private final Uri CONTENT_URI = LocationsProvider.uri;
+
     // 2 LatLng for SJSU and CS department (given in exercise 6, or you can find those yourself)
+    private final LatLng LOCATION_UNIV = new LatLng(37.335371, -121.881050);
+    private final LatLng LOCATION_CS = new LatLng(37.333714, -121.881860);
     // (Extra credit) SharedPreferences and KEYs needed
+    private SharedPreferences sharedPreference;
+    private final String PREFERENCE_NAME = "edu.sjsu.android.sharedpreference";
+    int mapType;
+    double lat, lon;
+    float zoom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,23 +58,63 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         assert mapFragment != null;
         mapFragment.getMapAsync(this);
+
         // TODO: attach listeners to the buttons
+        findViewById(R.id.city).setOnClickListener(this::switchView);
+        findViewById(R.id.univ).setOnClickListener(this::switchView);
+        findViewById(R.id.cs).setOnClickListener(this::switchView);
+        findViewById(R.id.location).setOnClickListener(this::getLocation);
+        findViewById(R.id.uninstall).setOnClickListener(this::uninstall);
+
         // TODO: retrieve and draw already saved locations in map
         // Hint: a method in LoaderManager
+        LoaderManager.getInstance(this).restartLoader(0, null, this);
+
         // TODO: extra credit - restore the map setting
         //  (camara position & map type) using SharedPreferences
+        sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
+        mapType = sharedPreference.getInt("map_type", 0);
+        lat = Double.parseDouble(sharedPreference.getString("latitude", "1"));
+        lon = Double.parseDouble(sharedPreference.getString("longitude", "1"));
+        zoom = sharedPreference.getFloat("zoom", 1f);
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        //sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor preferencesEditor = sharedPreference.edit();
+        preferencesEditor.putInt("map_type", mMap.getMapType());
+        double latitude = mMap.getCameraPosition().target.latitude;
+        double longitude = mMap.getCameraPosition().target.longitude;
+        float zoom_level = mMap.getCameraPosition().zoom;
+        preferencesEditor.putString("latitude", String.valueOf(latitude));
+        preferencesEditor.putString("longitude", String.valueOf((longitude)));
+        preferencesEditor.putFloat("zoom", zoom_level);
+        preferencesEditor.apply();
     }
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
         // TODO: extra credit - restore the map setting
+        mMap.setMapType(mapType);
+        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lon), zoom);
+        mMap.animateCamera(update);
+
         mMap.setOnMapClickListener(point -> {
             // TODO: insert the LatLng point to the database on click
             // (You may consider put the code in an private helper method)
             // 1) Add a maker on the point to the map
             // 2) Store the latitude, longitude and zoom level of the point to SQLite database using ContentValues
             // 3) Call execute(ContentValues) on a MyTask (defined below) object to add a point
+            ContentValues values = new ContentValues();
+            values.put("latitude", point.latitude);
+            values.put("longitude", point.longitude);
+            values.put("zoom_level", mMap.getCameraPosition().zoom);
+            new MyTask().execute(values);
+            mMap.addMarker(new MarkerOptions().position(point));
         });
 
         mMap.setOnMapLongClickListener(point -> {
@@ -57,6 +123,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             // 1) Clear all markers from the Google Map
             // 2) Call execute() on a MyTask (defined below) object to clear the database
             // 3) Toast a message "All makers are removed"
+            mMap.clear();
+            new MyTask().execute((ContentValues) null);
+            Toast.makeText(this, "All makers are removed",
+                    Toast.LENGTH_LONG).show();
         });
     }
 
@@ -70,6 +140,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             // Hint: if the first contentValues is not null, insert it
             // Otherwise, delete all.
             // Both operations should be done through content provider
+
+            if(contentValues[0] != null) {
+                getContentResolver().insert(CONTENT_URI, contentValues[0]);
+            } else {
+                getContentResolver().delete(CONTENT_URI, null, null);
+            }
+
             return null;
         }
     }
@@ -91,7 +168,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // TODO: load the cursor that's pointing to the database
         // Hint: return a CursorLoader object with this context
         // and the URI (set other parameters to null)
-        return null;
+        Log.i("pili3", "test loader");
+        return new CursorLoader(this, CONTENT_URI, null, null, null, null);
     }
 
     /**
@@ -109,6 +187,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Draw a marker based on the LatLng object on the map
         // After getting all data, move the "camera" to focus on the last clicked location
         // Also the zoom level should be the same as the last clicked location
+        if (cursor != null && cursor.moveToFirst()) {
+            // Retrieve data row by row
+            LatLng location;
+            float zoom;
+            do {
+                double latitude = cursor.getDouble(1);
+                double longitude = cursor.getDouble(2);
+                location = new LatLng(latitude, longitude);
+
+                mMap.addMarker(new MarkerOptions().position(location));
+                zoom = cursor.getFloat(cursor.getColumnCount() - 1);
+            } while (cursor.moveToNext()) ;
+
+            CameraUpdate update =  CameraUpdateFactory.newLatLngZoom(location, zoom);
+            mMap.animateCamera(update);
+        }
     }
 
     @Override
@@ -122,6 +216,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     // getLocation and switchView are the same as the ones in exercise 6.
     public void uninstall(View view) {
         // TODO: uninstall the app
+        Intent delete = new Intent(Intent.ACTION_DELETE,
+                Uri.parse("package:" + getPackageName()));
+        startActivity(delete);
     }
 
     public void getLocation(View view) {
@@ -129,9 +226,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Remember to check if the location is enabled
         // and ask for permissions
         // Can implement GPSTracker class to do all these.
+        GPSTracker tracker = new GPSTracker(this);
+        tracker.getLocation();
     }
 
     public void switchView(View view) {
         // TODO: switch between different views based on the button being clicked
+        CameraUpdate update = null;
+        if (view.getId() == R.id.city) {
+            mMap.setMapType(GoogleMap.MAP_TYPE_SATELLITE);
+            update = CameraUpdateFactory.newLatLngZoom(LOCATION_UNIV, 10f);
+        } else if (view.getId() == R.id.univ) {
+            mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+            update = CameraUpdateFactory.newLatLngZoom(LOCATION_UNIV, 14f);
+        } else if (view.getId() == R.id.cs) {
+            mMap.setMapType(GoogleMap.MAP_TYPE_TERRAIN);
+            update = CameraUpdateFactory.newLatLngZoom(LOCATION_CS, 18f);
+        }
+        mMap.animateCamera(update);
     }
 }
