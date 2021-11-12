@@ -6,7 +6,7 @@ android {
     compileSdk 31
 
     defaultConfig {
-        applicationId "edu.sjsu.android.project4template"
+        applicationId "edu.sjsu.android.project4yingyingzhao"
         minSdk 21
         targetSdk 29
         versionCode 1

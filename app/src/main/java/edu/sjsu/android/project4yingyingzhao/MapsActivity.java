@@ -46,9 +46,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     // (Extra credit) SharedPreferences and KEYs needed
     private SharedPreferences sharedPreference;
     private final String PREFERENCE_NAME = "edu.sjsu.android.sharedpreference";
-    int mapType;
-    double lat, lon;
-    float zoom;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,36 +69,40 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // TODO: extra credit - restore the map setting
         //  (camara position & map type) using SharedPreferences
-        sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
-        mapType = sharedPreference.getInt("map_type", 0);
-        lat = Double.parseDouble(sharedPreference.getString("latitude", "1"));
-        lon = Double.parseDouble(sharedPreference.getString("longitude", "1"));
-        zoom = sharedPreference.getFloat("zoom", 1f);
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        //sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
+        sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
         SharedPreferences.Editor preferencesEditor = sharedPreference.edit();
         preferencesEditor.putInt("map_type", mMap.getMapType());
         double latitude = mMap.getCameraPosition().target.latitude;
         double longitude = mMap.getCameraPosition().target.longitude;
         float zoom_level = mMap.getCameraPosition().zoom;
-        preferencesEditor.putString("latitude", String.valueOf(latitude));
-        preferencesEditor.putString("longitude", String.valueOf((longitude)));
+        preferencesEditor.putFloat("latitude", (float) latitude);
+        preferencesEditor.putFloat("longitude", (float)longitude);
         preferencesEditor.putFloat("zoom", zoom_level);
         preferencesEditor.apply();
+        LoaderManager.getInstance(this).destroyLoader(0);
     }
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
         // TODO: extra credit - restore the map setting
-        mMap.setMapType(mapType);
-        CameraUpdate update = CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lon), zoom);
-        mMap.animateCamera(update);
+//        sharedPreference = getSharedPreferences(PREFERENCE_NAME, MODE_PRIVATE);
+//        if(sharedPreference.contains("map_type")) {
+//            int mapType = sharedPreference.getInt("map_type", 0);
+//            double lat = sharedPreference.getFloat("latitude", 1f);
+//            double lon = sharedPreference.getFloat("longitude", 1f);
+//            float zoom = sharedPreference.getFloat("zoom", 1f);
+//
+//            mMap.setMapType(mapType);
+//            CameraUpdate update = CameraUpdateFactory.newLatLngZoom(new LatLng(lat, lon), zoom);
+//            mMap.animateCamera(update);
+//        }
 
         mMap.setOnMapClickListener(point -> {
             // TODO: insert the LatLng point to the database on click
@@ -129,6 +130,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     Toast.LENGTH_LONG).show();
         });
     }
+
 
     // Below is the class that extend AsyncTask, to insert/delete data in background
     // Note that AsyncTask is deprecated from API 30, but you can still use it.
@@ -168,7 +170,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // TODO: load the cursor that's pointing to the database
         // Hint: return a CursorLoader object with this context
         // and the URI (set other parameters to null)
-        Log.i("pili3", "test loader");
+        Log.i("pitao3", "test loader");
         return new CursorLoader(this, CONTENT_URI, null, null, null, null);
     }
 
@@ -200,8 +202,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 zoom = cursor.getFloat(cursor.getColumnCount() - 1);
             } while (cursor.moveToNext()) ;
 
-            CameraUpdate update =  CameraUpdateFactory.newLatLngZoom(location, zoom);
-            mMap.animateCamera(update);
+//            CameraUpdate update =  CameraUpdateFactory.newLatLngZoom(location, zoom);
+//            mMap.animateCamera(update);
         }
     }
 
